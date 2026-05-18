@@ -76,7 +76,81 @@ aigc-watermark-system/
 
 ## 新增文件详解
 
-### 1. 阶段管理器
+### 1. BCH + CRC 用户ID编码方案
+
+#### utils/bch_codec.py
+
+**文件**: `D:\毕业论文研究\aigc-watermark-system\utils\bch_codec.py`
+
+**功能**: BCH 纠错码编解码
+
+**核心类**: `BCHCodec`
+
+**主要方法**:
+- `encode(message_bits)` - BCH 编码
+- `decode(received_bits)` - BCH 解码并纠错
+
+**参数**:
+- n: 码字长度 (63 bit 推荐)
+- k: 消息长度 (32 bit = 16 short_id + 16 CRC)
+- t: 可纠正错误数 (3~5 bit)
+
+---
+
+#### utils/crc.py
+
+**文件**: `D:\毕业论文研究\aigc-watermark-system\utils\crc.py`
+
+**功能**: CRC 循环冗余校验
+
+**核心类**:
+- `CRCCalculator` - 通用 CRC 计算器
+- `StegaStampCRC` - StegaStamp 专用 CRC
+
+**支持**: CRC-8, CRC-16 (推荐), CRC-32
+
+---
+
+#### utils/user_manager.py (更新)
+
+**文件**: `D:\毕业论文研究\aigc-watermark-system\utils\user_manager.py`
+
+**新增类**:
+- `UserIDManagerBCH` - BCH + CRC 编码管理器
+- `HybridUserIDManager` - 三种模式混合管理器
+
+**三种验证模式**:
+1. **Exact Match**: 精确匹配（0 bit 容错）
+2. **Hamming**: 汉明距离阈值（默认 5 bit 容错）
+3. **BCH_CRC**: BCH 纠错 + CRC 校验（推荐，可纠正 3~8 bit）
+
+**编码流程**:
+```
+user_id -> short_id (16 bit) -> CRC-16 (16 bit) -> BCH 编码 (63 bit) -> 填充到 100 bit
+```
+
+**解码流程**:
+```
+100 bit -> BCH 解码纠错 -> CRC 校验 -> short_id -> user_id
+```
+
+---
+
+#### scripts/demo_bch_crc.py
+
+**文件**: `D:\毕业论文研究\aigc-watermark-system\scripts\demo_bch_crc.py`
+
+**功能**: BCH + CRC 方案演示脚本
+
+**演示内容**:
+- BCH + CRC 编码/解码流程
+- 三种模式对比 (Exact/Hamming/BCH_CRC)
+- 错误恢复能力测试
+- CRC 校验演示
+
+---
+
+### 2. 阶段管理器
 
 **文件**: `D:\毕业论文研究\aigc-watermark-system\stage_manager.py`
 

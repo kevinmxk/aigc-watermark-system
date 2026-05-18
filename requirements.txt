@@ -20,6 +20,10 @@
 #   pip install -r requirements-stegastamp.txt
 # ============================================================
 
+# BCH 纠错码 (用户ID编码增强)
+# bchlib>=1.0.0
+# reedsolo>=1.5.4
+
 # 基础依赖（所有环境共用）
 torch>=2.0.0
 torchvision>=0.15.0

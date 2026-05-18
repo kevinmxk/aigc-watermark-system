@@ -8,6 +8,10 @@
 tensorflow-gpu==1.15.5
 # 或 CPU 版本: tensorflow==1.15.5
 
+# BCH 纠错码 (用户ID编码)
+bchlib>=1.0.0
+reedsolo>=1.5.4
+
 # 图像处理
 Pillow>=9.0.0
 numpy>=1.24.0
