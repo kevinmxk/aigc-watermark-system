@@ -14,61 +14,108 @@
 
 **设计要点**：前两层**跨域嵌套**（结构耦合），第三层**跨域叠加**（后处理不干扰前两层）
 
+## 环境兼容性说明
+
+**重要**：三层架构依赖**不兼容**的软件环境，无法在同一个 Python 进程中运行：
+
+| 层级 | 环境 | 关键依赖 | 冲突原因 |
+|------|------|---------|---------|
+| 验证层 (DAAM) | `daam` | diffusers 0.21.2 | DAAM trace 需要 diffusers 0.21+ |
+| 品牌层 (Tree-Ring) | `tree-ring` | diffusers 0.11.1 | InversableStableDiffusionPipeline 需 0.11 |
+| 用户层 (StegaStamp) | `stegastamp` | TensorFlow 1.15.5 | TF 1.x 与 PyTorch 内存冲突 |
+
+**解决方案**：使用**分阶段执行架构**，通过 `subprocess` + `conda run` 在独立环境中运行每个阶段，中间结果通过 JSON 文件传递。
+
 ## 系统架构
 
 ```
 输入文本提示词 p + 用户ID
         ↓
-[1] DAAM 语义分析 ───────→ 生成语义掩码 M，计算覆盖率 r
-        ↓
-[2] Guided Strength ─────→ w' = w₀ × (1 - α × r)，α=0.3
-        ↓
-[3] Tree-Ring 注入 ──────→ 在初始噪声 latent 傅里叶空间注入频域水印
-        ↓
-[4] Stable Diffusion ────→ 生成带两层嵌套水印的图像
-        ↓
-[5] StegaStamp 编码 ─────→ 像素域嵌入用户 ID（100比特）
+[阶段1: DAAM语义分析] ───→ 生成语义掩码 M，计算覆盖率 r
+        ↓ (JSON文件传递)
+[阶段2: Tree-Ring生成] ──→ 注入频域水印，生成图像
+        ↓ (图像文件传递)
+[阶段3: StegaStamp编码] ─→ 叠加用户指纹
         ↓
 输出带三级水印的最终图像
 ```
 
 ## 快速开始
 
-### 环境准备
+### 1. 环境准备（三环境安装）
 
 ```bash
-# 1. 安装依赖
-pip install -r requirements.txt
+# ===== 环境1: DAAM (diffusers 0.21.2) =====
+conda create -n daam python=3.8
+conda activate daam
+pip install -r requirements-daam.txt
 
-# 2. 配置模型路径
-# 编辑 configs/default.yaml，设置模型路径
+# ===== 环境2: Tree-Ring (diffusers 0.11.1) =====
+conda create -n tree-ring python=3.8
+conda activate tree-ring
+pip install -r requirements-treering.txt
+
+# Tree-Ring 水印库 (需从源码安装)
+git clone https://github.com/Tree-Ring/tree-ring-watermark.git
+cd tree-ring-watermark
+pip install -e .
+
+# ===== 环境3: StegaStamp (TensorFlow 1.15.5) =====
+conda create -n stegastamp python=3.7
+conda activate stegastamp
+
+# 安装 CUDA 10.0 (TF 1.15 需要)
+conda install cudatoolkit=10.0 cudnn=7.6
+
+pip install -r requirements-stegastamp.txt
+
+# StegaStamp 模型
+# 下载 StegaStamp SavedModel 到 saved_models/stegastamp_140k/
 ```
 
-### 单张生成
+### 2. 使用阶段管理器运行（推荐）
 
 ```bash
-python generate.py --prompt "a cat sitting on a windowsill" --user-id user_001
+# 完整三阶段流水线
+python stage_manager.py --prompt "a cat sitting on a windowsill" --user-id user_001
+
+# 指定工作目录
+python stage_manager.py --prompt "a beautiful sunset" --user-id user_002 --work-dir ./work
+
+# 运行单个阶段
+python stage_manager.py --stage daam --prompt "a cat"
+python stage_manager.py --stage tree_ring --prompt "a cat" (需要阶段1的输出)
 ```
 
-### 生成对比图
+### 3. 使用传统方式（单环境运行）
+
+如果只想测试某一层的功能（跳过其他层）：
 
 ```bash
-python generate.py --prompt "a beautiful sunset" --user-id user_002 --save-comparison
+# 仅生成 Tree-Ring 水印（跳过 DAAM 和 StegaStamp）
+conda activate tree-ring
+python generate.py --prompt "a cat" --user-id user_001 --skip-daam --skip-stegastamp
+
+# 仅添加 StegaStamp（对已生成图像）
+conda activate stegastamp
+python scripts/stage3_stegastamp.py --input stage_input.json --output stage_output.json
 ```
 
-### 批量生成
+### 4. 批量生成
 
 ```bash
-# 创建提示词文件（每行一个提示词）
-echo "a cat on a windowsill" > prompts.txt
-echo "a beautiful sunset" >> prompts.txt
-echo "a red apple on a wooden table" >> prompts.txt
+# 创建提示词文件
+cat > prompts.txt << EOF
+a cat on a windowsill
+a beautiful sunset
+a red apple on a wooden table
+EOF
 
-# 批量生成
+# 批量运行
 python scripts/batch_generate.py --prompts prompts.txt --output-dir ./results
 ```
 
-### 水印检测
+### 5. 水印检测
 
 ```bash
 # 检测单张图像
@@ -82,25 +129,55 @@ python detect.py --image-dir ./output
 
 ```
 aigc-watermark-system/
-├── core/
-│   ├── pipeline.py          # 三级水印主管线
-│   ├── tree_ring.py         # Tree-Ring 频域水印模块
-│   ├── daam_mask.py         # DAAM 语义掩码 + Guided Strength
-│   └── stegastamp.py        # StegaStamp 用户指纹模块
-├── utils/
-│   ├── metrics.py           # PSNR/SSIM/FFT检测指标
-│   └── user_manager.py      # 用户ID管理
+├── stage_manager.py           # 阶段管理器（解决环境冲突）
+├── generate.py                # 主生成入口（单环境）
+├── detect.py                  # 水印检测入口
+├── verify.py                  # 系统验证脚本
 ├── configs/
-│   └── default.yaml         # 默认配置
-├── scripts/
-│   └── batch_generate.py    # 批量生成
-├── generate.py              # 主入口
-├── detect.py                # 水印检测
-├── requirements.txt
-└── README.md
+│   └── default.yaml           # 默认配置
+├── core/                      # 核心模块（单环境使用）
+│   ├── pipeline.py            # 三级水印主管线
+│   ├── tree_ring.py           # Tree-Ring 频域水印
+│   ├── daam_mask.py           # DAAM 语义掩码 + Guided Strength
+│   └── stegastamp.py          # StegaStamp 用户指纹
+├── utils/
+│   ├── metrics.py             # PSNR/SSIM/FFT检测指标
+│   └── user_manager.py        # 用户ID管理
+├── scripts/                   # 分阶段执行脚本
+│   ├── stage1_daam.py         # 阶段1: DAAM分析 (daam环境)
+│   ├── stage2_treering.py     # 阶段2: Tree-Ring生成 (tree-ring环境)
+│   ├── stage3_stegastamp.py   # 阶段3: StegaStamp编码 (stegastamp环境)
+│   └── batch_generate.py      # 批量生成
+├── requirements.txt             # 基础依赖说明
+├── requirements-daam.txt        # DAAM环境依赖
+├── requirements-treering.txt    # Tree-Ring环境依赖
+└── requirements-stegastamp.txt  # StegaStamp环境依赖
 ```
 
 ## 核心 API
+
+### 阶段管理器方式（解决环境冲突）
+
+```python
+from stage_manager import StageManager
+
+# 创建阶段管理器
+manager = StageManager(work_dir='./work')
+
+# 运行完整流水线
+result = manager.run_full_pipeline(
+    prompt="a cat sitting on a windowsill",
+    user_id="user_001",
+    seed=42
+)
+
+print(f"最终图像: {result['final_image']}")
+print(f"语义覆盖率: {result['stages']['daam']['semantic_ratio']:.4f}")
+print(f"调制强度: {result['stages']['daam']['modulated_intensity']:.6f}")
+print(f"StegaStamp准确率: {result['stages']['stegastamp']['bit_accuracy']:.4f}")
+```
+
+### 单环境方式（传统用法）
 
 ```python
 from core.pipeline import ThreeLayerWatermarkPipeline, WatermarkDetector
@@ -116,17 +193,15 @@ result = pipeline.generate(
     prompt="a cat sitting on a windowsill",
     user_id="user_001",
     seed=42,
-    save_comparison=True,
 )
-print(result['metrics'])  # PSNR, SSIM, FFT等
-print(result['semantic_ratio'])  # DAAM 语义覆盖率
-print(result['modulated_intensity'])  # 调制后的水印强度
+print(result['semantic_ratio'])
+print(result['modulated_intensity'])
 
 # 检测
 detector = WatermarkDetector(config)
 result = detector.detect('output/cat_user_001.png', user_id='user_001')
-print(result['tree_ring'])   # Tree-Ring 检测结果
-print(result['stegastamp'])  # StegaStamp 检测结果
+print(result['tree_ring'])
+print(result['stegastamp'])
 ```
 
 ## Guided Strength 公式
@@ -149,15 +224,41 @@ w' = w₀ × (1 - α × r)
 
 ## 部署到 AutoDL
 
-1. 将整个 `aigc-watermark-system/` 目录上传到 `/root/autodl-tmp/`
-2. 确认 `configs/default.yaml` 中的模型路径正确
-3. 确认 StegaStamp SavedModel 路径正确
-4. 在 `tree-ring` conda 环境中运行：
+1. **上传代码**
    ```bash
-   conda activate tree-ring
-   cd /root/autodl-tmp/aigc-watermark-system
-   python generate.py --prompt "..." --user-id user_001
+   # 将整个 aigc-watermark-system/ 上传到 /root/autodl-tmp/
+   rsync -avz ./aigc-watermark-system/ root@your-autodl:/root/autodl-tmp/aigc-watermark-system/
    ```
+
+2. **创建三个 conda 环境**（按上面的步骤）
+
+3. **确认模型路径**（编辑 `configs/default.yaml`）
+   ```yaml
+   model:
+     base_model: "/root/autodl-tmp/models/stable-diffusion-2-1-base"
+   ```
+
+4. **运行阶段管理器**
+   ```bash
+   cd /root/autodl-tmp/aigc-watermark-system
+   python stage_manager.py --prompt "..." --user-id user_001
+   ```
+
+## 故障排除
+
+### 环境冲突问题
+- **错误**: `ImportError: cannot import name 'InversableStableDiffusionPipeline'`
+- **原因**: 在错误的 conda 环境中运行
+- **解决**: 确保使用 `tree-ring` 环境
+
+### CUDA 版本问题
+- **错误**: `CUDA_ERROR_NO_DEVICE` 或 `cuDNN version mismatch`
+- **原因**: TF 1.15 需要 CUDA 10.0，PyTorch 2.0+ 需要 CUDA 11.7+
+- **解决**: 使用分阶段执行，每个环境独立配置 CUDA
+
+### 显存不足
+- **错误**: `CUDA out of memory`
+- **解决**: 减小 batch size，或使用 `torch.cuda.empty_cache()`
 
 ## 引用
 

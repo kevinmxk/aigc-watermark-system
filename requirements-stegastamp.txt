@@ -1,0 +1,24 @@
+# StegaStamp 环境依赖 (TensorFlow 1.15.5)
+# conda create -n stegastamp python=3.7
+# conda activate stegastamp
+# pip install -r requirements-stegastamp.txt
+
+# TensorFlow 1.15.5 (需要 CUDA 10.0)
+# 先安装: conda install cudatoolkit=10.0 cudnn=7.6
+tensorflow-gpu==1.15.5
+# 或 CPU 版本: tensorflow==1.15.5
+
+# 图像处理
+Pillow>=9.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+opencv-python>=4.5.0
+
+# StegaStamp (需要本地路径)
+# git clone https://github.com/tancik/StegaStamp.git
+# cd StegaStamp && pip install -e .
+
+# 其他工具
+pyyaml>=6.0
+tqdm>=4.65.0

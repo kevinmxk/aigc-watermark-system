@@ -1,0 +1,27 @@
+# Tree-Ring 环境依赖 (diffusers 0.11.1)
+# conda create -n tree-ring python=3.8
+# conda activate tree-ring
+# pip install -r requirements-treering.txt
+
+# PyTorch
+torch>=2.0.0
+torchvision>=0.15.0
+accelerate>=0.20.0
+
+# Stable Diffusion (diffusers 0.11.1 - 用于 InversableStableDiffusionPipeline)
+diffusers==0.11.1
+transformers>=4.30.0
+huggingface-hub>=0.16.0
+
+# Tree-Ring 水印 (需要本地路径)
+# git clone https://github.com/Tree-Ring/tree-ring-watermark.git
+# cd tree-ring-watermark && pip install -e .
+
+# 基础工具
+Pillow>=9.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+pyyaml>=6.0
+tqdm>=4.65.0
+scikit-image>=0.21.0

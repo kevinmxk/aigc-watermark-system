@@ -1,27 +1,33 @@
-# AIGC 三级版权溯源系统 - 依赖
-# 注意：PyTorch 和 TensorFlow 1.15 需要分开安装到不同 conda 环境
-# StegaStamp 部分使用延迟加载，仅在需要时导入 TF
+# AIGC 三级版权溯源系统 - 依赖配置说明
+# ============================================================
+# 由于三层架构依赖不兼容，需要创建三个独立的 conda 环境
+#
+# 环境1: daam (diffusers 0.21.2) - DAAM 语义分析
+# 环境2: tree-ring (diffusers 0.11.1) - Tree-Ring 频域水印
+# 环境3: stegastamp (TF 1.15.5) - StegaStamp 像素域水印
+#
+# 安装命令：
+#   conda create -n daam python=3.8
+#   conda activate daam
+#   pip install -r requirements-daam.txt
+#
+#   conda create -n tree-ring python=3.8
+#   conda activate tree-ring
+#   pip install -r requirements-treering.txt
+#
+#   conda create -n stegastamp python=3.7
+#   conda activate stegastamp
+#   pip install -r requirements-stegastamp.txt
+# ============================================================
 
-# 核心依赖（所有环境）
+# 基础依赖（所有环境共用）
 torch>=2.0.0
 torchvision>=0.15.0
-diffusers>=0.21.2
-transformers>=4.30.0
-accelerate>=0.23.0
 Pillow>=9.0.0
 numpy>=1.24.0
 scipy>=1.10.0
 matplotlib>=3.7.0
-safetensors>=0.3.0
-huggingface-hub>=0.16.0
 pyyaml>=6.0
 tqdm>=4.65.0
 
-# DAAM 语义掩码（可选，需要 DAAM 库）
-# daam>=1.0.0
-# 或直接使用本地 daam 路径
-
-# StegaStamp（仅在 stegastamp 环境中需要）
-# tensorflow==1.15.5
-# opencv-python>=3.4.3.18
-# stn>=1.0.1
+# 其他依赖根据环境选择安装
