@@ -173,15 +173,19 @@ class StegaStampDecoder:
         image = Image.open(image_path).convert('RGB')
         return self.decode(image)
 
-    def verify(self, image: Image.Image, expected_secret: np.ndarray) -> Dict:
+    def verify(self, image: Image.Image, expected_secret: np.ndarray,
+               max_hamming: int = 10) -> Dict:
         """
         验证解码结果是否与期望的用户 ID 匹配
+        使用汉明距离阈值，提高容错率
 
         Returns:
             {
                 'bit_accuracy': float,
-                'string_accuracy': bool,
-                'hamming_distance': int
+                'string_accuracy': bool,      # 精确匹配
+                'hamming_match': bool,        # 汉明距离匹配（推荐）
+                'hamming_distance': int,
+                'max_allowed_hamming': int,
             }
         """
         decoded = self.decode(image)
@@ -192,10 +196,15 @@ class StegaStampDecoder:
         str_acc = bool(np.array_equal(decoded_rounded, expected_rounded))
         hamming = int(np.sum(decoded_rounded != expected_rounded))
 
+        # 汉明距离 <= max_hamming 即认为匹配
+        hamming_match = hamming <= max_hamming
+
         return {
             'bit_accuracy': round(bit_acc, 4),
             'string_accuracy': str_acc,
+            'hamming_match': hamming_match,
             'hamming_distance': hamming,
+            'max_allowed_hamming': max_hamming,
         }
 
     def close(self):
