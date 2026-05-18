@@ -1,0 +1,27 @@
+# AIGC 三级版权溯源系统 - 依赖
+# 注意：PyTorch 和 TensorFlow 1.15 需要分开安装到不同 conda 环境
+# StegaStamp 部分使用延迟加载，仅在需要时导入 TF
+
+# 核心依赖（所有环境）
+torch>=2.0.0
+torchvision>=0.15.0
+diffusers>=0.21.2
+transformers>=4.30.0
+accelerate>=0.23.0
+Pillow>=9.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+safetensors>=0.3.0
+huggingface-hub>=0.16.0
+pyyaml>=6.0
+tqdm>=4.65.0
+
+# DAAM 语义掩码（可选，需要 DAAM 库）
+# daam>=1.0.0
+# 或直接使用本地 daam 路径
+
+# StegaStamp（仅在 stegastamp 环境中需要）
+# tensorflow==1.15.5
+# opencv-python>=3.4.3.18
+# stn>=1.0.1

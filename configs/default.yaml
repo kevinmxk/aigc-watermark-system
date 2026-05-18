@@ -1,0 +1,38 @@
+# AIGC 三级版权溯源系统
+# 三层水印：Tree-Ring（频域） + DAAM Guided Strength（空间语义域） + StegaStamp（像素域）
+# 前两层跨域嵌套，第三层跨域叠加
+
+model:
+  # 生成模型（Tree-Ring + DAAM 共用）
+  base_model: "stabilityai/stable-diffusion-2-1-base"
+  image_size: 512
+  num_inference_steps: 50
+  guidance_scale: 7.5
+
+tree_ring:
+  w_0: 0.05           # 基础水印强度
+  w_mask_shape: circle # 环形掩码
+  w_radius: 10         # 环形半径（像素）
+  w_channel: -1        # 所有通道
+  w_injection: complex # 复数注入
+  w_pattern: rand      # 随机图案
+  w_seed: 42           # 水印种子
+  w_measurement: complex_l1
+
+daam:
+  tau: 0.3             # 语义掩码二值化阈值
+  alpha: 0.3           # Guided Strength 调制系数
+  # w' = w_0 * (1 - alpha * r)
+
+stegastamp:
+  secret_size: 100      # 用户ID比特数（需与StegaStamp模型匹配）
+  encoder_path: ""      # StegaStamp encoder SavedModel 路径
+  decoder_path: ""      # StegaStamp decoder SavedModel 路径
+  lambda_init: 0.3      # 编码强度（lambda）
+  height: 400           # StegaStamp 输入图像高度
+  width: 400            # StegaStamp 输入图像宽度
+
+generation:
+  seed: 42             # 默认随机种子
+  output_dir: "./output"
+  save_comparison: false  # 是否保存无水印对比图
