@@ -24,6 +24,9 @@
 # bchlib>=1.0.0
 # reedsolo>=1.5.4
 
+# Web 前端
+streamlit>=1.28.0
+
 # 基础依赖（所有环境共用）
 torch>=2.0.0
 torchvision>=0.15.0
